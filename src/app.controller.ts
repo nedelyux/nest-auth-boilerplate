@@ -14,7 +14,7 @@ export class AppController {
 
   @Roles(Role.Admin)
   @Get('admin')
-  profile(): string {
+  admin(): string {
     return this.appService.getHelloAdmin();
   }
 }

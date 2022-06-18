@@ -5,8 +5,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import * as bcrypt from 'bcrypt';
+import * as parser from 'ua-parser-js';
 
 import { LoginDto, RegisterDto } from './dto';
 import { JwtAccessPayload, JwtRefreshPayload, Tokens } from './types';
@@ -14,6 +15,7 @@ import { Role } from 'src/auth/enums';
 import { DataSource } from 'typeorm';
 import { User } from 'src/auth/entity/user.entity';
 import { Session } from 'src/auth/entity/session.entry';
+import { ChangeRoleDto } from 'src/auth/dto/changeRole.dto';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +31,11 @@ export class AuthService {
   private userRepository;
   private sessionRepository;
 
-  async register(dto: RegisterDto, response: Response): Promise<Tokens> {
+  async register(
+    dto: RegisterDto,
+    request: Request,
+    response: Response,
+  ): Promise<Tokens> {
     const findAlredyExistUser = await this.userRepository.findOneBy({
       email: dto.email,
     });
@@ -72,6 +78,12 @@ export class AuthService {
       session.refresh_token = tokens.refreshToken;
       session.user = createdUser;
 
+      const UAData = parser(request.headers['user-agent']);
+
+      // сохраняем данные об агенете
+      if (UAData.browser?.name) session.browser_name = UAData.browser.name;
+      if (UAData.os?.name) session.os_name = UAData.os.name;
+
       await queryRunner.manager.save(session);
 
       await queryRunner.commitTransaction();
@@ -91,7 +103,11 @@ export class AuthService {
     return tokens;
   }
 
-  async login(dto: LoginDto, response: Response): Promise<Tokens> {
+  async login(
+    dto: LoginDto,
+    request: Request,
+    response: Response,
+  ): Promise<Tokens> {
     // ищем по email
     const findUser = await this.userRepository.findOneBy({
       email: dto.email,
@@ -115,6 +131,12 @@ export class AuthService {
     session.refresh_token = tokens.refreshToken;
     session.user = findUser;
 
+    const UAData = parser(request.headers['user-agent']);
+
+    // сохраняем данные об агенете
+    if (UAData.browser?.name) session.browser_name = UAData.browser.name;
+    if (UAData.os?.name) session.os_name = UAData.os.name;
+
     await this.sessionRepository.save(session);
 
     // сохраняем токен в cookie
@@ -125,7 +147,12 @@ export class AuthService {
     return tokens;
   }
 
-  async refreshTokens(id: number, rt: string, response): Promise<Tokens> {
+  async refreshTokens(
+    id: number,
+    rt: string,
+    request: Request,
+    response: Response,
+  ): Promise<Tokens> {
     // ищем пользователя по id
     const findUser = await this.userRepository.findOneBy({
       id,
@@ -137,7 +164,7 @@ export class AuthService {
     const findSession = await this.sessionRepository.findOne({
       where: {
         user: {
-          id: 1,
+          id,
         },
         refresh_token: rt,
       },
@@ -159,6 +186,12 @@ export class AuthService {
       newSession.access_token = tokens.accessToken;
       newSession.refresh_token = tokens.refreshToken;
       newSession.user = findUser;
+
+      const UAData = parser(request.headers['user-agent']);
+
+      // сохраняем данные об агенете
+      if (UAData.browser?.name) newSession.browser_name = UAData.browser.name;
+      if (UAData.os?.name) newSession.os_name = UAData.os.name;
 
       // сохраняем новую сессию
       await queryRunner.manager.save(newSession);
@@ -206,5 +239,57 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  async changeRole(dto: ChangeRoleDto) {
+    const { userId, role } = dto;
+
+    // ищем пользователя по id
+    const findUser: User = await this.userRepository.findOneBy({
+      id: userId,
+    });
+
+    if (!findUser) throw new ForbiddenException('Пользователь не найден');
+
+    if (findUser.role === role)
+      throw new ForbiddenException('Роль у пользователя уже установлена');
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      const user: User = await queryRunner.manager.findOneBy(User, {
+        id: userId,
+      });
+
+      // Меняем роль
+      user.role = role;
+
+      let session = await queryRunner.manager.find(Session, {
+        where: {
+          user: {
+            id: userId,
+          },
+        },
+      });
+
+      // удаляем все access_token
+      session = session.map((session) => ({
+        ...session,
+        access_token: null,
+      }));
+
+      await queryRunner.manager.save(Session, session);
+      await queryRunner.manager.save(User, user);
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+
+      throw new BadRequestException('Не удалось установить роль');
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

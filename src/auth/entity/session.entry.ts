@@ -16,11 +16,23 @@ export class Session {
   @ManyToOne(() => User, (user) => user.sessions)
   user: User;
 
-  @Column()
+  @Column({
+    nullable: true,
+  })
   access_token: string;
 
   @Column()
   refresh_token: string;
+
+  @Column({
+    nullable: true,
+  })
+  browser_name: string;
+
+  @Column({
+    nullable: true,
+  })
+  os_name: string;
 
   @CreateDateColumn()
   createdDate: Date;
