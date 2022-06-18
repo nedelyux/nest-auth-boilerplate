@@ -161,7 +161,7 @@ export class AuthService {
     if (!findUser) throw new ForbiddenException('Пользователь не найден');
 
     // ищем существующую сессию
-    const findSession = await this.sessionRepository.findOne({
+    const findSession: Session = await this.sessionRepository.findOne({
       where: {
         user: {
           id,
@@ -172,40 +172,20 @@ export class AuthService {
 
     if (!findSession) throw new ForbiddenException('Сессия не найдена');
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     // создаем токены
     const tokens = await this.getTokens(findUser);
 
-    try {
-      // создаем новую сессию
-      const newSession = new Session();
+    findSession.access_token = tokens.accessToken;
+    findSession.refresh_token = tokens.refreshToken;
 
-      newSession.access_token = tokens.accessToken;
-      newSession.refresh_token = tokens.refreshToken;
-      newSession.user = findUser;
+    const UAData = parser(request.headers['user-agent']);
 
-      const UAData = parser(request.headers['user-agent']);
+    // сохраняем данные об агенете
+    if (UAData.browser?.name) findSession.browser_name = UAData.browser.name;
+    if (UAData.os?.name) findSession.os_name = UAData.os.name;
 
-      // сохраняем данные об агенете
-      if (UAData.browser?.name) newSession.browser_name = UAData.browser.name;
-      if (UAData.os?.name) newSession.os_name = UAData.os.name;
-
-      // сохраняем новую сессию
-      await queryRunner.manager.save(newSession);
-      // удаляем старую сессию
-      await queryRunner.manager.remove(findSession);
-
-      await queryRunner.commitTransaction();
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-
-      throw new BadRequestException('Не удалось обновиить сессию');
-    } finally {
-      await queryRunner.release();
-    }
+    // обновляем сессию
+    await this.sessionRepository.save(findSession);
 
     // сохраняем токен в cookie
     response.cookie('refreshToken', tokens.refreshToken, {
