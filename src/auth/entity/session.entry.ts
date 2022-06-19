@@ -19,20 +19,20 @@ export class Session {
   @Column({
     nullable: true,
   })
-  access_token: string;
+  accessToken: string;
 
   @Column()
-  refresh_token: string;
+  refreshToken: string;
 
   @Column({
     nullable: true,
   })
-  browser_name: string;
+  browserName: string;
 
   @Column({
     nullable: true,
   })
-  os_name: string;
+  osName: string;
 
   @CreateDateColumn()
   createdDate: Date;

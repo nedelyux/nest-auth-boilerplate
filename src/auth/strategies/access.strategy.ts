@@ -24,7 +24,7 @@ export class AtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const accessToken = req?.get('authorization')?.replace('Bearer', '').trim();
 
     const findAccessToekn = await this.sessionRepository.findOneBy({
-      access_token: accessToken,
+      accessToken,
     });
 
     if (!findAccessToekn)

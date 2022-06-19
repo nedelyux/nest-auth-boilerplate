@@ -74,15 +74,15 @@ export class AuthService {
 
       // создаем сессию
       const session = new Session();
-      session.access_token = tokens.accessToken;
-      session.refresh_token = tokens.refreshToken;
+      session.accessToken = tokens.accessToken;
+      session.refreshToken = tokens.refreshToken;
       session.user = createdUser;
 
       const UAData = parser(request.headers['user-agent']);
 
       // сохраняем данные об агенете
-      if (UAData.browser?.name) session.browser_name = UAData.browser.name;
-      if (UAData.os?.name) session.os_name = UAData.os.name;
+      if (UAData.browser?.name) session.browserName = UAData.browser.name;
+      if (UAData.os?.name) session.osName = UAData.os.name;
 
       await queryRunner.manager.save(session);
 
@@ -127,15 +127,15 @@ export class AuthService {
 
     // создаем сессию
     const session = new Session();
-    session.access_token = tokens.accessToken;
-    session.refresh_token = tokens.refreshToken;
+    session.accessToken = tokens.accessToken;
+    session.refreshToken = tokens.refreshToken;
     session.user = findUser;
 
     const UAData = parser(request.headers['user-agent']);
 
     // сохраняем данные об агенете
-    if (UAData.browser?.name) session.browser_name = UAData.browser.name;
-    if (UAData.os?.name) session.os_name = UAData.os.name;
+    if (UAData.browser?.name) session.browserName = UAData.browser.name;
+    if (UAData.os?.name) session.osName = UAData.os.name;
 
     await this.sessionRepository.save(session);
 
@@ -149,7 +149,7 @@ export class AuthService {
 
   async refreshTokens(
     id: number,
-    rt: string,
+    refreshToken: string,
     request: Request,
     response: Response,
   ): Promise<Tokens> {
@@ -166,7 +166,7 @@ export class AuthService {
         user: {
           id,
         },
-        refresh_token: rt,
+        refreshToken,
       },
     });
 
@@ -175,14 +175,14 @@ export class AuthService {
     // создаем токены
     const tokens = await this.getTokens(findUser);
 
-    findSession.access_token = tokens.accessToken;
-    findSession.refresh_token = tokens.refreshToken;
+    findSession.accessToken = tokens.accessToken;
+    findSession.refreshToken = tokens.refreshToken;
 
     const UAData = parser(request.headers['user-agent']);
 
     // сохраняем данные об агенете
-    if (UAData.browser?.name) findSession.browser_name = UAData.browser.name;
-    if (UAData.os?.name) findSession.os_name = UAData.os.name;
+    if (UAData.browser?.name) findSession.browserName = UAData.browser.name;
+    if (UAData.os?.name) findSession.osName = UAData.os.name;
 
     // обновляем сессию
     await this.sessionRepository.save(findSession);
@@ -254,10 +254,10 @@ export class AuthService {
         },
       });
 
-      // удаляем все access_token
+      // удаляем все accessToken
       session = session.map((session) => ({
         ...session,
-        access_token: null,
+        accessToken: null,
       }));
 
       await queryRunner.manager.save(Session, session);
