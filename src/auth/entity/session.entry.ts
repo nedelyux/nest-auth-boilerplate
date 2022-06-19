@@ -34,9 +34,18 @@ export class Session {
   })
   osName: string;
 
-  @CreateDateColumn()
+  @Column({
+    type: 'timestamptz',
+  })
+  expiresInRefresh: Date;
+
+  @CreateDateColumn({
+    type: 'timestamptz',
+  })
   createdDate: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({
+    type: 'timestamptz',
+  })
   updatedDate: Date;
 }

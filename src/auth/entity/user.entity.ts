@@ -26,9 +26,13 @@ export class User {
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({
+    type: 'timestamptz',
+  })
   createdDate: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({
+    type: 'timestamptz',
+  })
   updatedDate: Date;
 }

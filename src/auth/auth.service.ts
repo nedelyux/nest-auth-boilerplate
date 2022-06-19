@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import * as parser from 'ua-parser-js';
+import * as ms from 'ms';
 
 import { LoginDto, RegisterDto } from './dto';
 import { JwtAccessPayload, JwtRefreshPayload, Tokens } from './types';
@@ -77,6 +78,9 @@ export class AuthService {
       session.accessToken = tokens.accessToken;
       session.refreshToken = tokens.refreshToken;
       session.user = createdUser;
+      session.expiresInRefresh = new Date(
+        Date.now() + ms(this.config.get<string>('REFRESH_EXPIRES_IN')),
+      );
 
       const UAData = parser(request.headers['user-agent']);
 
@@ -131,6 +135,10 @@ export class AuthService {
     session.refreshToken = tokens.refreshToken;
     session.user = findUser;
 
+    session.expiresInRefresh = new Date(
+      Date.now() + ms(this.config.get<string>('REFRESH_EXPIRES_IN')),
+    );
+
     const UAData = parser(request.headers['user-agent']);
 
     // сохраняем данные об агенете
@@ -184,6 +192,10 @@ export class AuthService {
     if (UAData.browser?.name) findSession.browserName = UAData.browser.name;
     if (UAData.os?.name) findSession.osName = UAData.os.name;
 
+    findSession.expiresInRefresh = new Date(
+      Date.now() + ms(this.config.get<string>('REFRESH_EXPIRES_IN')),
+    );
+
     // обновляем сессию
     await this.sessionRepository.save(findSession);
 
@@ -207,11 +219,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(jwtAccessPayload, {
         secret: this.config.get<string>('ACCESS_SECRET'),
-        expiresIn: '15m',
+        expiresIn: this.config.get<string>('ACCESS_EXPIRES_IN'),
       }),
       this.jwtService.signAsync(jwtRefreshPayload, {
         secret: this.config.get<string>('REFRESH_SECRET'),
-        expiresIn: '7d',
+        expiresIn: this.config.get<string>('REFRESH_EXPIRES_IN'),
       }),
     ]);
 
